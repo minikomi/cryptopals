@@ -1,0 +1,7 @@
+{:paths [:clj-paths :resource-paths]
+ :deps    {me.raynes/fs                {:mvn/version "1.4.6"}
+           commons-codec/commons-codec {:mvn/version "1.15"}}
+ :aliases {:test {:extra-deps {lambdaisland/kaocha {:mvn/version "1.0.732"}}}
+           :dev  {:main-opts ["-M" ":middleware/cider-clj-refactor"]}
+           :clj-paths ["src"]
+           :resource-paths ["resources"]}}
