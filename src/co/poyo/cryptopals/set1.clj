@@ -88,7 +88,7 @@
 ;; the one with the best score.
 
 (def char-freq-table
-  ; source : https://en.wikipedia.org/wiki/Letter_frequency
+  ;; source : https://en.wikipedia.org/wiki/Letter_frequency
   {\a 0.08167 \b 0.01492 \c 0.02782 \d 0.04253 \e 0.12702
    \f 0.02228 \g 0.02015 \h 0.06094 \i 0.06966 \j 0.00153
    \k 0.00772 \l 0.04025 \m 0.02406 \n 0.06749 \o 0.07507
@@ -115,9 +115,9 @@
 (comment
   (decode-xor-using-char-freq
    "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736")
-  ; result:
-  ;
-  ; [2.14329 \X "Cooking MC's like a pound of bacon"]
+  ;; result:
+  ;;
+  ;; [2.14329 \X "Cooking MC's like a pound of bacon"]
   )
 
 ;; *** Detect single-character XOR
@@ -134,9 +134,9 @@
   (def set1-4-input (slurp (io/resource "set1/4.txt")))
   (first
    (sort-by first > (pmap decode-xor-using-char-freq (str/split-lines set1-4-input))))
-  ; Result
-  ;
-  ; [2.5622299999999996 53 "Now that the party is jumping\n"]
+   ;; Result
+   ;;
+   ;; [2.5622299999999996 53 "Now that the party is jumping\n"]
   )
 
 ;; *** Implement repeating-key XOR
