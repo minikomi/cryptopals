@@ -1,7 +1,8 @@
 (ns co.poyo.cryptopals.set1
   (:import [org.apache.commons.codec.binary Hex Base64])
   (:require [clojure.string :as str]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [clojure.math.combinatorics :as combo]))
 
 (defn hexstr->ba [s]
   (Hex/decodeHex ^chars (char-array s)))
@@ -195,6 +196,12 @@
 ;;    #+end_example
 ;;
 ;;    is *37.* /Make sure your code agrees before you proceed./
+
+(defn hamming-distance [bs1 bs2]
+  (->> (map bit-xor bs1 bs2)
+       (map #(Integer/bitCount %))
+       (reduce +)))
+
 ;;
 ;; 3. For each KEYSIZE, take the /first/ KEYSIZE worth of bytes, and
 ;;    the /second/ KEYSIZE worth of bytes, and find the edit distance
@@ -225,7 +232,41 @@
 ;; break it than can /actually break it/, and a similar technique breaks
 ;; something much more important.
 
-(defn hamming-distance [bs1 bs2]
-  (->> (map bit-xor bs1 bs2)
-       (map #(Integer/bitCount %))
-       (reduce +)))
+(def set1-6-input (decode-base64
+                   (s->ba (apply str (str/split-lines (slurp (io/resource "set1/6.txt")))))))
+
+(defn transpose [xs]
+  (apply map vector xs))
+
+(defn calc-avg-hamming-distance-between-blocks [input-ba keysize]
+  (let [block-combinations (map vec (combo/combinations [1 2 3 4] 2))
+        blocks (partition keysize input-ba)
+        selected-blocks (map
+                         (fn -select [[a b]] [(nth blocks a) (nth blocks b)])
+                         block-combinations)
+        hamming-distances (map #(apply hamming-distance %) selected-blocks)
+        norm-hamming-distances (map #(/ % keysize) hamming-distances)]
+    (/ (reduce + norm-hamming-distances) (count norm-hamming-distances))))
+
+(defn find-repeating-key-length [input-ba]
+  (let [hamming-keysize-pairs
+        (for [n (range 3 41)]
+          [(calc-avg-hamming-distance-between-blocks input-ba n) n])]
+    (-> (sort-by first hamming-keysize-pairs)
+        first
+        second)))
+
+(defn decode-repeating-xor-key [input-ba keysize]
+  (->> (transpose (partition keysize input-ba))
+       (map byte-array)
+       (map decode-xor-using-char-freq)
+       (map second)
+       (map char)
+       (apply str)))
+
+(comment
+  (find-repeating-key-length set1-6-input)
+  ;; 29
+  (decode-repeating-xor-key set1-6-input 29)
+  ;; "Terminator X: Bring the noise"
+  )
