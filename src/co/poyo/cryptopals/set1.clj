@@ -233,7 +233,7 @@
 ;; something much more important.
 
 (def set1-6-input (decode-base64
-                   (s->ba (apply str (str/split-lines (slurp (io/resource "set1/6.txt")))))))
+                   (s->ba (slurp (io/resource "set1/6.txt")))))
 
 (defn transpose [xs]
   (apply map vector xs))
