@@ -24,3 +24,11 @@
     ["0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f"]
     (map #(set1/ba->hexstr (set1/repeating-key-xor "ICE" %))
          ["Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal"]))))
+
+(t/deftest test-set-1-6
+
+  (t/is
+   (= 37
+      (set1/hamming-distance
+       (set1/s->ba "this is a test")
+       (set1/s->ba "wokka wokka!!!")))))
