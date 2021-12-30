@@ -101,9 +101,8 @@
   (let [lc-chars (->> ba (map #(Character/toLowerCase %)))]
     (reduce + (map #(get char-freq-table % 0) lc-chars))))
 
-(defn decode-xor-using-char-freq [input-str]
-  (let [input-ba (hexstr->ba input-str)
-        results (for [ch (range 32 127)
+(defn decode-xor-using-char-freq [input-ba]
+  (let [results (for [ch (range 32 127)
                       :let [single-char-ba (->> (repeat (byte ch))
                                                 (take (count input-ba))
                                                 byte-array)
@@ -133,8 +132,12 @@
 
 (comment
   (def set1-4-input (slurp (io/resource "set1/4.txt")))
+
   (first
-   (sort-by first > (pmap decode-xor-using-char-freq (str/split-lines set1-4-input))))
+   (sort-by first > (pmap
+                     #(decode-xor-using-char-freq
+                       (hexstr->ba %))
+                     (str/split-lines set1-4-input))))
    ;; Result
    ;;
    ;; [2.5622299999999996 53 "Now that the party is jumping\n"]
