@@ -1,26 +1,12 @@
 (ns co.poyo.cryptopals.set1
-  (:import [org.apache.commons.codec.binary Hex Base64])
+  (:import [org.apache.commons.codec.binary Hex Base64]
+           [javax.crypto Cipher]
+           [javax.crypto.spec SecretKeySpec])
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
-            [clojure.math.combinatorics :as combo]))
-
-(defn hexstr->ba [s]
-  (Hex/decodeHex ^chars (char-array s)))
-
-(defn ba->s [^bytes ba]
-  (String. ^bytes ba "UTF-8"))
-
-(defn s->ba [^String s]
-  (.getBytes (String. ^String s)))
-
-(defn ba->hexstr [^bytes ba]
-  (apply str (Hex/encodeHex ba)))
-
-(defn encode-base64 [^bytes ba]
-  (Base64/encodeBase64 ba))
-
-(defn decode-base64 [^bytes ba]
-  (Base64/decodeBase64 ^bytes ba))
+            [clojure.math.combinatorics :as combo]
+            [co.poyo.cryptopals.util :as util]
+            ))
 
 ;; * Convert hex to base64
 ;;   - The string:
@@ -32,8 +18,7 @@
 ;;   ~SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t~
 
 (defn hex-to-base64 [s]
-  (-> s hexstr->ba encode-base64 ba->s))
-
+  (-> s util/hexstr->ba util/encode-base64 util/ba->s))
 
 ;; *** Fixed XOR
 ;; Write a function that takes two equal-length buffers and produces their
@@ -58,19 +43,11 @@
 ;; #+end_example
 ;;
 
-
-(defn fixed-xor-ba [ba1 ba2]
-  (amap ^bytes ba1 i ret
-        (byte
-         (bit-xor
-          (aget ^bytes ba1 i)
-          (aget ^bytes ba2 i)))))
-
 (defn fixed-xor [s1 s2]
-  (ba->hexstr
-   (fixed-xor-ba
-    (hexstr->ba s1)
-    (hexstr->ba s2))))
+  (util/ba->hexstr
+   (util/fixed-xor-ba
+    (util/hexstr->ba s1)
+    (util/hexstr->ba s2))))
 
 ;; *** Single-byte XOR cipher
 ;; The hex encoded string:
@@ -106,10 +83,10 @@
                       :let [single-char-ba (->> (repeat (byte ch))
                                                 (take (count input-ba))
                                                 byte-array)
-                            xor-result (fixed-xor-ba
+                            xor-result (util/fixed-xor-ba
                                         input-ba
                                         single-char-ba)]]
-                  [(rate-str (ba->s xor-result)) ch (ba->s xor-result)])]
+                  [(rate-str (util/ba->s xor-result)) ch (util/ba->s xor-result)])]
     (first (sort-by first > results))))
 
 (comment
@@ -136,7 +113,7 @@
   (first
    (sort-by first > (pmap
                      #(decode-xor-using-char-freq
-                       (hexstr->ba %))
+                       (util/hexstr->ba %))
                      (str/split-lines set1-4-input))))
    ;; Result
    ;;
@@ -168,10 +145,9 @@
 ;; your mail. Encrypt your password file. Your .sig file. Get a feel for
 ;; it. I promise, we aren't wasting your time with this.
 
-
 (defn repeating-key-xor [key s]
-  (let [ba (s->ba s)]
-    (fixed-xor-ba
+  (let [ba (util/s->ba s)]
+    (util/fixed-xor-ba
      ba
      (byte-array (take (count s) (cycle (map byte key)))))))
 
@@ -235,9 +211,6 @@
 ;; break it than can /actually break it/, and a similar technique breaks
 ;; something much more important.
 
-(def set1-6-input (decode-base64
-                   (s->ba (slurp (io/resource "set1/6.txt")))))
-
 (defn transpose [xs]
   (apply map vector xs))
 
@@ -268,8 +241,70 @@
        (apply str)))
 
 (comment
+  (def set1-6-input (util/decode-base64
+                     (util/s->ba (slurp (io/resource "set1/6.txt")))))
+
   (find-repeating-key-length set1-6-input)
   ;; 29
   (decode-repeating-xor-key set1-6-input 29)
   ;; "Terminator X: Bring the noise"
+  )
+
+
+;; AES in ECB mode
+
+;; The Base64-encoded content in set1/7.txt has been encrypted via AES-128 in
+;; ECB mode under the key "YELLOW SUBMARINE".  (case-sensitive, without the
+;; quotes; exactly 16 characters; I like "YELLOW SUBMARINE" because it's exactly
+;; 16 bytes long, and now you do too).
+
+;; Decrypt it. You know the key, after all.
+
+;; Easiest way: use OpenSSL::Cipher and give it AES-128-ECB as the cipher.
+
+;; Do this with code.
+
+;; You can obviously decrypt this using the OpenSSL command-line tool, but we're
+;; having you get ECB working in code for a reason. You'll need it a lot later
+;; on, and not just for attacking ECB.
+
+
+
+(comment
+
+  (def set1-7-input
+    (util/decode-base64
+     (util/s->ba (slurp (io/resource "set1/7.txt")))))
+
+  (def submarine-key (util/s->ba "YELLOW SUBMARINE"))
+
+  (println (util/ba->s (util/aes-ecb :decrypt set1-7-input submarine-key)))
+
+  )
+
+
+;; Detect AES in ECB mode
+;;
+;; In set1/8.txt are a bunch of hex-encoded ciphertexts.
+;;
+;; One of them has been encrypted with ECB.
+;;
+;; Detect it.
+;;
+;; Remember that the problem with ECB is that it is stateless and deterministic;
+;; the same 16 byte plaintext block will always produce the same 16 byte
+;; ciphertext.
+
+(defn is-aes-ecb? [len ^bytes ba]
+  (let [chunks (partition len ba)]
+    (not= (count chunks)
+       (count (distinct chunks)))))
+
+(comment
+  (def set1-8-input
+    (mapv #(util/decode-base64
+           (util/s->ba %))
+     (str/split-lines (slurp (io/resource "set1/8.txt")))))
+
+  (util/ba->hexstr (first (filter #(is-aes-ecb? 16 %) set1-8-input)))
   )
