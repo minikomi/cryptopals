@@ -5,17 +5,10 @@
             [co.poyo.cryptopals.set1 :as set1]
             ))
 
-(defn ba-extend [^bytes a ^bytes b]
-  (let [len (+ (count a) (count b))
-        out (byte-array len)
-        bb (java.nio.ByteBuffer/wrap out)]
-    (.put (.put bb a) b)
-    out))
-
 (defn pkcs-7 [^bytes ba len]
   (let [ext-len (max 0 (- len (count ba)))]
     (if (zero? ext-len) ba
-        (ba-extend ba (byte-array ext-len (byte 0)))
+        (util/ba-extend ba (byte-array ext-len (byte 0)))
         )))
 
 (comment
@@ -56,12 +49,12 @@
             (fn [{:keys [cypher collect]} chunk]
               (let [new-cypher (-aes-encrypt-step key cypher chunk)]
                 {:cypher new-cypher
-                 :collect (ba-extend collect new-cypher)}))
+                 :collect (util/ba-extend collect new-cypher)}))
             :decrypt
             (fn [{:keys [cypher collect]} chunk]
               (let [decrypted-chunk (-aes-decrypt-step key cypher chunk)]
                 {:cypher chunk
-                 :collect (ba-extend collect decrypted-chunk)})))
+                 :collect (util/ba-extend collect decrypted-chunk)})))
         final (case mode
                 :encrypt identity
                 :decrypt (fn [s]
@@ -127,7 +120,7 @@
   (let [rand-key (byte-array (repeatedly 16 #(rand-int 257)))
         rand-head (byte-array (repeatedly (+ 5 (rand-int 5)) #(rand-int 257)))
         rand-tail (byte-array (repeatedly (+ 5 (rand-int 5)) #(rand-int 257)))
-        txt-extended (ba-extend (ba-extend rand-head txt) rand-tail)
+        txt-extended (util/ba-extend (util/ba-extend rand-head txt) rand-tail)
         alg-type (rand-nth [:ecb :cbc])
         encrypted-result (case alg-type
 
@@ -146,4 +139,71 @@
 
 (comment
   (check-blackbox)
+  )
+
+
+;; Byte-at-a-time ECB decryption (Simple)
+;;
+;; Copy your oracle function to a new function that encrypts buffers under ECB
+;; mode using a consistent but unknown key (for instance, assign a single random
+;; key, once, to a global variable).
+;;
+;; Now take that same function and have it append to the plaintext, BEFORE
+;; ENCRYPTING, the following string:
+;;
+;; Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg
+;; aGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBq
+;; dXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUg
+;; YnkK
+;;
+;;  - Spoiler alert.
+;;
+;;    - Do not decode this string now. Don't do it.
+;;
+;;    - Base64 decode the string before appending it. Do not base64 decode the string
+;;      by hand; make your code do it. The point is that you don't know its contents.
+;;
+;; What you have now is a function that produces:
+;;
+;; AES-128-ECB(your-string || unknown-string, random-key)
+;;
+;; It turns out: you can decrypt "unknown-string" with repeated calls to the oracle function!
+;;
+;; Here's roughly how:
+;;
+;; 1 Feed identical bytes of your-string to the function 1 at a time --- start
+;;   with 1 byte ("A"), then "AA", then "AAA" and so on. Discover the block size
+;;   of the cipher. You know it, but do this step anyway.
+;; 2 Detect that the function is using ECB. You already know, but do this step
+;;   anyways.
+;; 3 Knowing the block size, craft an input block that is exactly 1 byte short
+;;  (for instance, if the block size is 8 bytes, make "AAAAAAA"). Think about
+;;  what the oracle function is going to put in that last byte position.
+;; 4 Make a dictionary of every possible last byte by feeding different strings
+;;   to the oracle; for instance, "AAAAAAAA", "AAAAAAAB", "AAAAAAAC", remembering
+;;   the first block of each invocation.
+;; 5 Match the output of the one-byte-short input to one of the entries in your
+;;   dictionary. You've now discovered the first byte of unknown-string.
+;; 6 Repeat for the next byte.
+
+(def unknown-string
+  (util/decode-base64
+   (util/s->ba (slurp (io/resource "set2/12.txt")))))
+
+(def random-key
+  (byte-array (repeatedly 16 #(rand-int 257))))
+
+(defn head-append-aes-ecb [^bytes txt]
+  (util/aes-ecb
+   :encrypt
+   (util/ba-extend txt unknown-string)
+   random-key))
+
+(comment
+  (set1/find-repeating-key-length
+   (head-append-aes-ecb (util/s->ba "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")))
+  ;; 16
+  (set1/is-aes-ecb?
+   16 (util/s->ba "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"))
+  ;; true
   )

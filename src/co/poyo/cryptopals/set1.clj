@@ -215,7 +215,7 @@
   (apply map vector xs))
 
 (defn calc-avg-hamming-distance-between-blocks [input-ba keysize]
-  (let [block-combinations (map vec (combo/combinations [1 2 3 4] 2))
+  (let [block-combinations (map vec (combo/combinations [0 1 2 3] 2))
         blocks (partition keysize input-ba)
         selected-blocks (map
                          (fn -select [[a b]] [(nth blocks a) (nth blocks b)])
@@ -224,9 +224,9 @@
         norm-hamming-distances (map #(/ % keysize) hamming-distances)]
     (/ (reduce + norm-hamming-distances) (count norm-hamming-distances))))
 
-(defn find-repeating-key-length [input-ba]
+(defn find-repeating-key-length [^bytes input-ba]
   (let [hamming-keysize-pairs
-        (for [n (range 3 41)]
+        (for [n (range 3 (quot (count input-ba) 4))]
           [(calc-avg-hamming-distance-between-blocks input-ba n) n])]
     (-> (sort-by first hamming-keysize-pairs)
         first

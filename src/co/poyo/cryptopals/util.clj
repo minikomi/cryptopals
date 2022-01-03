@@ -43,3 +43,10 @@
      (.init cipher-instance mode-int spec)
      (.doFinal cipher-instance txt)
      )))
+
+(defn ba-extend [^bytes a ^bytes b]
+  (let [len (+ (count a) (count b))
+        out (byte-array len)
+        bb (java.nio.ByteBuffer/wrap out)]
+    (.put (.put bb a) b)
+    out))
