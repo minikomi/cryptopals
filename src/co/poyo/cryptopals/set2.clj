@@ -38,13 +38,13 @@
 (defn -aes-encrypt-step [key cypher chunk]
   (let [key-len (count key)
         pad-chunk (pkcs-7 chunk key-len)
-        xor-chunk (fixed-xor-ba cypher pad-chunk)
+        xor-chunk (util/fixed-xor-ba cypher pad-chunk)
         aes-chunk (util/aes-ecb :encrypt xor-chunk key false)]
     aes-chunk))
 
 (defn -aes-decrypt-step [key cypher chunk]
   (let [ecb-chunk (util/aes-ecb :decrypt chunk key false)
-        xor-chunk (fixed-xor-ba cypher ecb-chunk)]
+        xor-chunk (util/fixed-xor-ba cypher ecb-chunk)]
     xor-chunk))
 
 (defn aes-cbc
@@ -86,10 +86,10 @@
   (def submarine-key (util/s->ba "YELLOW SUBMARINE"))
 
   (str/trim (util/ba->s
-    (aes-cbc :decrypt
-             (aes-cbc :encrypt (util/s->ba "banana banana banana yo yo yo") submarine-key)
-             submarine-key
-             )))
+             (aes-cbc :decrypt
+                      (aes-cbc :encrypt (util/s->ba "banana banana banana yo yo yo") submarine-key)
+                      submarine-key
+                      )))
 
   (util/ba->s
    (aes-cbc :decrypt set2-2-input submarine-key))
@@ -128,19 +128,22 @@
         rand-head (byte-array (repeatedly (+ 5 (rand-int 5)) #(rand-int 257)))
         rand-tail (byte-array (repeatedly (+ 5 (rand-int 5)) #(rand-int 257)))
         txt-extended (ba-extend (ba-extend rand-head txt) rand-tail)
-        alg-type (rand-nth [:ecb :cbc])]
-    (println alg-type)
-    (case alg-type
-      :ecb
-      (util/aes-ecb :encrypt txt-extended rand-key)
-      :cbc
-      (aes-cbc :encrypt txt-extended rand-key)
-      )))
+        alg-type (rand-nth [:ecb :cbc])
+        encrypted-result (case alg-type
+
+                           :ecb
+                           (util/aes-ecb :encrypt txt-extended rand-key)
+                           :cbc
+                           (aes-cbc :encrypt txt-extended rand-key)
+                           )
+        ]
+    [alg-type encrypted-result
+     ]))
 
 (defn check-blackbox []
+  (let [[alg-type bb-result] (blackbox (util/s->ba (apply str (repeat 64 \A))))]
+    (= alg-type (if (set1/is-aes-ecb? 16 bb-result) :ecb :cbc))))
 
-  (let [bb (blackbox (util/s->ba (apply str (repeat 64 \A))))
-        ]
-    (if (set1/is-aes-ecb? 16 bb) :ecb :cbc)))
-(util/ba->s (blackbox (util/s->ba (apply str (repeat 100 \A)))))
-(check-blackbox)
+(comment
+  (check-blackbox)
+  )

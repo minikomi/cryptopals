@@ -31,7 +31,7 @@
 
 (defn aes-ecb
   ([mode ^bytes txt ^bytes key]
-   (aes mode ^bytes txt ^bytes key true))
+   (aes-ecb mode ^bytes txt ^bytes key true))
   ([mode txt key padding]
    (let  [mode-int (case mode
                      :encrypt Cipher/ENCRYPT_MODE
